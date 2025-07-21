@@ -52,6 +52,10 @@ class BruteForceGUI:
         self.is_running = False
         self.is_paused = False
         
+        # Notes system
+        self.notes_file = "password_notes_bank.json"
+        self.notes_data = self.load_notes_bank()
+        
         # Create GUI elements
         self.create_widgets()
         self.update_status()
@@ -175,6 +179,203 @@ class BruteForceGUI:
                             background=frame_bg, 
                             foreground=green_light,
                             font=('Arial', 16, 'bold'))
+    
+    def load_notes_bank(self):
+        """Load notes bank from JSON file"""
+        try:
+            if os.path.exists(self.notes_file):
+                with open(self.notes_file, 'r') as f:
+                    return json.load(f)
+            else:
+                return []
+        except Exception as e:
+            self.log_message(f"⚠️ Error loading notes bank: {e}")
+            return []
+    
+    def save_notes_bank(self):
+        """Save notes bank to JSON file"""
+        try:
+            with open(self.notes_file, 'w') as f:
+                json.dump(self.notes_data, f, indent=2)
+        except Exception as e:
+            self.log_message(f"⚠️ Error saving notes bank: {e}")
+    
+    def add_note_to_bank(self, password, note):
+        """Add a password and note to the bank"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        entry = {
+            "password": password,
+            "note": note,
+            "timestamp": timestamp
+        }
+        self.notes_data.append(entry)
+        self.save_notes_bank()
+        self.log_message(f"📝 Added note for password {password}: {note}")
+    
+    def show_notes_bank(self):
+        """Show the notes bank in a new window"""
+        notes_window = tk.Toplevel(self.root)
+        notes_window.title("Password Notes Bank")
+        notes_window.geometry("600x500")
+        notes_window.configure(bg='#0a0a0a')
+        
+        # Make it stay on top
+        notes_window.transient(self.root)
+        notes_window.grab_set()
+        
+        # Create main frame with dark theme
+        main_frame = ttk.Frame(notes_window, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="🏦 Password Notes Bank", 
+                               style='Title.TLabel')
+        title_label.pack(pady=(0, 10))
+        
+        # Notes display with scrollbar
+        notes_frame = ttk.Frame(main_frame)
+        notes_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Text widget for notes
+        notes_text = scrolledtext.ScrolledText(notes_frame, height=20, wrap=tk.WORD,
+                                             bg='#0a0a0a', fg='#00ff41',
+                                             insertbackground='#00ff41',
+                                             selectbackground='#1a4f1a',
+                                             font=('Consolas', 10))
+        notes_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Populate notes
+        if self.notes_data:
+            for i, entry in enumerate(self.notes_data, 1):
+                notes_text.insert(tk.END, f"Entry #{i}\n")
+                notes_text.insert(tk.END, f"Password: {entry['password']}\n")
+                notes_text.insert(tk.END, f"Note: {entry['note']}\n")
+                notes_text.insert(tk.END, f"Date: {entry['timestamp']}\n")
+                notes_text.insert(tk.END, "-" * 50 + "\n\n")
+        else:
+            notes_text.insert(tk.END, "No notes in the bank yet.\n\n")
+            notes_text.insert(tk.END, "When you find a correct password, you can add notes about:\n")
+            notes_text.insert(tk.END, "• Container location\n")
+            notes_text.insert(tk.END, "• What was inside\n")
+            notes_text.insert(tk.END, "• Server/world name\n")
+            notes_text.insert(tk.END, "• Any other useful information\n")
+        
+        notes_text.config(state='disabled')
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Wipe bank button
+        wipe_bank_btn = ttk.Button(button_frame, text="🗑️ WIPE BANK", 
+                                  command=lambda: self.wipe_notes_bank(notes_window),
+                                  style='Stop.TButton')
+        wipe_bank_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Close button
+        close_btn = ttk.Button(button_frame, text="Close", 
+                              command=notes_window.destroy)
+        close_btn.pack(side=tk.RIGHT)
+    
+    def wipe_notes_bank(self, parent_window=None):
+        """Wipe the entire notes bank with confirmation"""
+        result = messagebox.askyesno(
+            "Confirm Wipe Notes Bank",
+            "Are you sure you want to permanently delete ALL notes from the bank?\n\n"
+            f"This will remove {len(self.notes_data)} saved entries.\n\n"
+            "This action cannot be undone!",
+            icon='warning'
+        )
+        
+        if result:
+            self.notes_data = []
+            self.save_notes_bank()
+            self.log_message("🗑️ Notes bank wiped clean!")
+            
+            if parent_window:
+                parent_window.destroy()
+                # Reopen the notes window to show empty state
+                self.show_notes_bank()
+        
+    def prompt_for_note(self, password):
+        """Prompt user to add a note for the found password"""
+        note_window = tk.Toplevel(self.root)
+        note_window.title("Add Note for Password")
+        note_window.geometry("500x400")
+        note_window.configure(bg='#0a0a0a')
+        
+        # Make it stay on top and modal
+        note_window.transient(self.root)
+        note_window.grab_set()
+        
+        # Center the window
+        note_window.geometry("+%d+%d" % (self.root.winfo_rootx() + 150, self.root.winfo_rooty() + 100))
+        
+        # Create main frame
+        main_frame = ttk.Frame(note_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text=f"📝 Add Note for Password: {password}", 
+                               style='Title.TLabel')
+        title_label.pack(pady=(0, 15))
+        
+        # Instructions
+        instr_label = ttk.Label(main_frame, 
+                               text="Add notes about this password (optional):")
+        instr_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        # Note text area
+        note_text = scrolledtext.ScrolledText(main_frame, height=10, width=50,
+                                            bg='#2a2a2a', fg='#e0e0e0',
+                                            insertbackground='#00ff41',
+                                            selectbackground='#1a4f1a',
+                                            font=('Consolas', 10))
+        note_text.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        # Add placeholder text
+        placeholder = (
+            "Examples:\n"
+            "• Location: POI name, coordinates, or description\n"
+            "• Contents: Weapons, mods, resources found\n"
+            "• Server: Server name or world\n"
+            "• Other: Any other useful information\n\n"
+            "Type your note here..."
+        )
+        note_text.insert(tk.END, placeholder)
+        note_text.bind("<Button-1>", lambda e: note_text.delete(1.0, tk.END))
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        def save_note():
+            note = note_text.get(1.0, tk.END).strip()
+            if note and note != placeholder.strip():
+                self.add_note_to_bank(password, note)
+            else:
+                # Save with no note
+                self.add_note_to_bank(password, "No note added")
+            note_window.destroy()
+        
+        def skip_note():
+            note_window.destroy()
+        
+        # Buttons
+        save_btn = ttk.Button(button_frame, text="💾 Save Note", 
+                             command=save_note, style='Start.TButton')
+        save_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        skip_btn = ttk.Button(button_frame, text="⏭️ Skip Note", 
+                             command=skip_note)
+        skip_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        view_bank_btn = ttk.Button(button_frame, text="🏦 View Bank", 
+                                  command=lambda: [note_window.destroy(), self.show_notes_bank()])
+        view_bank_btn.pack(side=tk.RIGHT)
+        
+        # Focus on text area
+        note_text.focus_set()
         
     def setup_hotkeys(self):
         """Setup global hotkeys for start/stop functionality"""
@@ -191,19 +392,27 @@ class BruteForceGUI:
             # Hotkey to mark current combination as successful (F12)
             keyboard.add_hotkey('f12', self.hotkey_mark_success)
             
+            # Hotkey to open notes bank (F8)
+            keyboard.add_hotkey('f8', self.hotkey_notes_bank)
+            
             # Hotkey to clear correct password (Shift+F12)
             keyboard.add_hotkey('shift+f12', self.hotkey_clear_correct)
             
             # Emergency stop (Ctrl+F12)
             keyboard.add_hotkey('ctrl+f12', self.hotkey_emergency_stop)
             
+            # Wipe and restart (Ctrl+Shift+F12)
+            keyboard.add_hotkey('ctrl+shift+f12', self.hotkey_wipe_restart)
+            
             self.log_message("🎮 Hotkeys registered:")
+            self.log_message("  F8  - Open notes bank")
             self.log_message("  F9  - Start brute force")
             self.log_message("  F10 - Stop brute force")
             self.log_message("  F11 - Pause/Resume")
             self.log_message("  F12 - Mark combination as correct")
             self.log_message("  Shift+F12 - Clear correct password")
             self.log_message("  Ctrl+F12 - Emergency stop")
+            self.log_message("  Ctrl+Shift+F12 - Wipe & restart")
             
         except Exception as e:
             self.log_message(f"⚠️ Failed to register hotkeys: {e}")
@@ -273,6 +482,15 @@ class BruteForceGUI:
                     self.is_paused = True
                     if self.bot:
                         self.bot.paused = True
+                        
+                # Prompt user to add a note for this password
+                self.root.after(1000, lambda: self.prompt_for_note(combination))  # Small delay to let UI update
+                
+                # Pause the brute force to give user time to verify
+                if self.is_running:
+                    self.is_paused = True
+                    if self.bot:
+                        self.bot.paused = True
                     self.log_message("⏸️ Brute force paused - Press F11 to resume or F10 to stop")
             else:
                 self.log_message(f"⚠️ Password {combination} already marked as correct!")
@@ -291,6 +509,16 @@ class BruteForceGUI:
             self.bot.paused = False
         self.log_message("🚨 EMERGENCY STOP activated!")
         self.update_status()
+    
+    def hotkey_wipe_restart(self):
+        """Wipe and restart hotkey handler"""
+        self.log_message("🧹 Ctrl+Shift+F12 pressed - Wipe & Restart triggered!")
+        self.root.after(0, self.wipe_and_restart)
+    
+    def hotkey_notes_bank(self):
+        """Notes bank hotkey handler"""
+        self.log_message("🏦 F8 pressed - Opening notes bank...")
+        self.root.after(0, self.show_notes_bank)
         
     def create_widgets(self):
         """Create all GUI widgets"""
@@ -357,12 +585,13 @@ class BruteForceGUI:
         hotkey_frame = ttk.LabelFrame(main_frame, text="Global Hotkeys", padding="10")
         hotkey_frame.grid(row=2, column=2, sticky="we", padx=(10, 0), pady=(0, 10))
         
-        ttk.Label(hotkey_frame, text="F9 - Start", font=('Courier', 9)).grid(row=0, column=0, sticky=tk.W, pady=1)
-        ttk.Label(hotkey_frame, text="F10 - Stop", font=('Courier', 9)).grid(row=1, column=0, sticky=tk.W, pady=1)
-        ttk.Label(hotkey_frame, text="F11 - Pause", font=('Courier', 9)).grid(row=2, column=0, sticky=tk.W, pady=1)
-        ttk.Label(hotkey_frame, text="F12 - Mark Correct", font=('Courier', 9)).grid(row=3, column=0, sticky=tk.W, pady=1)
-        ttk.Label(hotkey_frame, text="Shift+F12 - Clear", font=('Courier', 9)).grid(row=4, column=0, sticky=tk.W, pady=1)
-        ttk.Label(hotkey_frame, text="Ctrl+F12 - Emergency", font=('Courier', 9)).grid(row=5, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="F8 - Notes Bank", font=('Courier', 9)).grid(row=0, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="F9 - Start", font=('Courier', 9)).grid(row=1, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="F10 - Stop", font=('Courier', 9)).grid(row=2, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="F11 - Pause", font=('Courier', 9)).grid(row=3, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="F12 - Mark Correct", font=('Courier', 9)).grid(row=4, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="Shift+F12 - Clear", font=('Courier', 9)).grid(row=5, column=0, sticky=tk.W, pady=1)
+        ttk.Label(hotkey_frame, text="Ctrl+F12 - Emergency", font=('Courier', 9)).grid(row=6, column=0, sticky=tk.W, pady=1)
         
         # === CONTROL SECTION ===
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
@@ -396,6 +625,16 @@ class BruteForceGUI:
                                            command=self.clear_correct_password,
                                            style='Stop.TButton')
         self.clear_correct_btn.grid(row=0, column=5, padx=5)
+        
+        self.wipe_btn = ttk.Button(button_frame, text="🧹 WIPE & RESTART", 
+                                  command=self.wipe_and_restart,
+                                  style='Stop.TButton')
+        self.wipe_btn.grid(row=0, column=6, padx=5)
+        
+        self.notes_bank_btn = ttk.Button(button_frame, text="🏦 NOTES BANK", 
+                                        command=self.show_notes_bank,
+                                        style='Start.TButton')
+        self.notes_bank_btn.grid(row=0, column=7, padx=5)
         
         # === STATUS SECTION ===
         status_frame = ttk.LabelFrame(main_frame, text="Status", padding="10")
@@ -563,6 +802,121 @@ class BruteForceGUI:
             self.log_message("❌ No password to clear!")
         else:
             self.log_message("❌ No bot initialized!")
+            
+    def wipe_and_restart(self):
+        """Wipe all progress, memory, and restart the program from scratch"""
+        from tkinter import messagebox
+        import os
+        import sys
+        
+        # Ask for confirmation with detailed warning
+        confirmed = messagebox.askyesno("Wipe & Restart", 
+                                      "⚠️ WARNING: This will completely WIPE ALL DATA and restart the program!\n\n"
+                                      "This will delete:\n"
+                                      "• All progress files\n"
+                                      "• All log files\n" 
+                                      "• All successful combinations\n"
+                                      "• All calibration data\n"
+                                      "• All settings\n\n"
+                                      "The program will restart from scratch.\n\n"
+                                      "Are you ABSOLUTELY SURE?")
+        
+        if not confirmed:
+            self.log_message("❌ Wipe operation cancelled!")
+            return
+            
+        # Stop any running processes first
+        if self.is_running:
+            self.emergency_stop()
+            
+        self.log_message("🧹 Starting complete wipe operation...")
+        
+        # List of files to delete
+        files_to_delete = [
+            'brute_force_progress.json',
+            'mouse_positions.json',
+            'calibration_data.json',
+            'brute_force_config.json',
+            'password_notes_bank.json'  # Include notes bank
+        ]
+        
+        # Add pattern-based files (logs, successful combinations)
+        import glob
+        pattern_files = [
+            'brute_force_log_*.txt',
+            'successful_combinations_*.txt',
+            'brute_force_*.log',
+            '*.backup',
+            '*.bak'
+        ]
+        
+        deleted_count = 0
+        
+        # Delete specific files
+        for filename in files_to_delete:
+            try:
+                if os.path.exists(filename):
+                    os.remove(filename)
+                    deleted_count += 1
+                    self.log_message(f"🗑️ Deleted: {filename}")
+            except Exception as e:
+                self.log_message(f"⚠️ Failed to delete {filename}: {e}")
+                
+        # Delete pattern-based files
+        for pattern in pattern_files:
+            try:
+                for file_path in glob.glob(pattern):
+                    os.remove(file_path)
+                    deleted_count += 1
+                    self.log_message(f"🗑️ Deleted: {file_path}")
+            except Exception as e:
+                self.log_message(f"⚠️ Failed to delete pattern {pattern}: {e}")
+        
+        self.log_message(f"🧹 Wiped {deleted_count} files successfully!")
+        self.log_message("🔄 Restarting program in 3 seconds...")
+        
+        # Clear GUI state
+        self.correct_password_var.set("Not Found")
+        self.start_combo_var.set("0000")
+        self.current_combo_var.set("0000")
+        self.status_var.set("Wiped - Restarting...")
+        
+        # Update GUI one last time
+        self.root.update()
+        
+        # Schedule restart
+        self.root.after(3000, self.restart_program)
+        
+    def restart_program(self):
+        """Restart the entire program"""
+        import os
+        import sys
+        import subprocess
+        
+        try:
+            self.log_message("🔄 Restarting program now...")
+            self.root.update()
+            
+            # Get the current script path
+            script_path = os.path.abspath(__file__)
+            
+            # Close current window
+            self.root.destroy()
+            
+            # Restart the program
+            if getattr(sys, 'frozen', False):
+                # If running as exe
+                subprocess.Popen([sys.executable])
+            else:
+                # If running as Python script
+                subprocess.Popen([sys.executable, script_path])
+                
+            # Exit current process
+            sys.exit(0)
+            
+        except Exception as e:
+            print(f"Error restarting program: {e}")
+            sys.exit(1)
         
     def init_bot(self):
         """Initialize the brute force bot"""
