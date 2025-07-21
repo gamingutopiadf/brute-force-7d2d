@@ -1,0 +1,19 @@
+# Requirements file for 7 Days to Die Brute Force Tool
+
+# Core automation libraries
+pynput>=1.7.6          # For keyboard and mouse input simulation
+keyboard>=0.13.5       # For global hotkey detection
+pyautogui>=0.9.54      # For GUI automation and screen interaction
+
+# Optional: Enhanced functionality
+pillow>=9.0.0          # For screenshot analysis (future features)
+opencv-python>=4.6.0   # For image recognition (advanced detection)
+numpy>=1.21.0          # Mathematical operations for image processing
+
+# Logging and data handling (built-in with Python 3.7+)
+# json - built-in
+# logging - built-in  
+# threading - built-in
+# time - built-in
+# datetime - built-in
+# os - built-in
